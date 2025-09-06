@@ -1,0 +1,36 @@
+name: e2e
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [chromium-desktop, chromium-ipad]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - name: Run smoke on PR
+        if: ${{ github.event_name == 'pull_request' }}
+        run: npx playwright test --project=${{ matrix.project }} --grep "@smoke"
+      - name: Run full suite
+        if: ${{ github.event_name != 'pull_request' }}
+        run: npx playwright test --project=${{ matrix.project }}
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ matrix.project }}
+          path: reports
